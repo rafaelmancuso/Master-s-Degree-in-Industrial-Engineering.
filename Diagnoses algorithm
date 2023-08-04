@@ -1,0 +1,361 @@
+pip install -U apread
+# pip install -U apread
+from sklearn import svm
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+import seaborn as sb
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.metrics import mean_absolute_error
+import glob
+
+# To import new files from PC
+# from google.colab import files
+# uploaded = files.upload()
+
+# To mount a Google Drive folder w/ data (lim max 90min or 12h)
+from google.colab import drive
+drive.mount('/content/drive/')
+
+# Original data folder
+# /content/drive/MyDrive/IPB/DD-UTFPR/2022-RafaelMancuso/TESE/Ensaios Barra quebrada/DataSet_orig/COPEL_100__BARRA_QUEBRADA
+
+path_files = '/content/drive/MyDrive/TESE/Algoritmos/trabalhando/Ensaios_primitivos/'
+# All files ending with .txt
+files = glob.glob(path_files + '*.bin')
+# print(files)
+print("Names: {}".format(len(files)))
+
+# CATMAN API https://github.com/leonbohmann/apreader (https://pypi.org/project/apread/)
+db1 = 'COPEL_100__RotorBom.bin'
+db2 = 'COPEL_100__BarraQuebrada.bin'
+db3 = 'COPEL_75__BarraQuebrada.bin'
+db4 = 'Gerador_100__RotorBom.bin'
+db5 = 'Gerador_75__BarraQuebrada.bin'
+db6 = 'Gerador_100__BarraQuebrada.bin'
+db7 = 'COPEL_100__RotorBom.bin'
+
+from apread import APReader
+reader1 = APReader(path_files + db1)   # this will read in the file
+reader2 = APReader(path_files + db2)
+reader3 = APReader(path_files + db3)
+reader4 = APReader(path_files + db4)
+reader5 = APReader(path_files + db5)
+reader6 = APReader(path_files + db6)
+reader7 = APReader(path_files + db7)
+
+#COPEL_100__RotorBom
+print('\n' + db1)
+print('\nGroups:')
+for group1 in reader1.Groups:
+  print(group1)
+
+print('\nChannels:')
+for i, channel in enumerate(reader1.Channels):
+  print(i, channel)
+channels1_8_16 = reader1.Channels[8:16]
+for i, channel in enumerate(channels1_8_16):
+    locals()["channelC100B_" + str(i+8)] = channel
+
+#COPEL_100__BarraQuebrada
+print('\n' + db2)
+print('\nGroups:')
+for group2 in reader2.Groups:
+  print(group2)
+
+
+print('\nChannels:')
+for i, channel in enumerate(reader2.Channels):
+  print(i, channel)
+channels2_14_21 = reader2.Channels[14:22]
+for i, channel in enumerate(channels2_14_21):
+    locals()["channelC100Q_" + str(i+14)] = channel
+    #print("channelC100Q_" + str(i+14), channel)
+
+
+#COPEL_75__BarraQuebrada
+print('\n' + db3)
+print('\nGroups:')
+for group3 in reader3.Groups:
+  print(group3)
+
+print('\nChannels:')
+for i, channel in enumerate(reader3.Channels):
+  print(i, channel)
+
+channels3_14_21 = reader3.Channels[14:22]
+for i, channel in enumerate(channels3_14_21):
+    locals()["channelC75Q_" + str(i+14)] = channel
+    #print("channelC75Q_" + str(i+14), channel)
+
+
+#Gerador_100__RotorBom
+print('\n' + db4)
+print('\nGroups:')
+for group4 in reader4.Groups:
+  print(group4)
+
+print('\nChannels:')
+for i, channel in enumerate(reader4.Channels):
+  print(i, channel)
+
+channels4_8_15 = reader4.Channels[8:16]
+for i, channel in enumerate(channels4_8_15):
+    locals()["channelG100B_" + str(i+8)] = channel
+    #print("channelG100B_" + str(i+8), channel)
+
+#Gerador_75__BarraQuebrada
+print('\n' + db5)
+print('\nGroups:')
+for group5 in reader5.Groups:
+  print(group5)
+
+print('\nChannels:')
+for i, channel in enumerate(reader5.Channels):
+  print(i, channel)
+
+channels5_14_21 = reader5.Channels[14:22]
+for i, channel in enumerate(channels5_14_21):
+    locals()["channelG75Q_" + str(i+14)] = channel
+    #print("channelG75Q_" + str(i+14), channel)
+
+
+#Gerador_100__BarraQuebrada
+print('\n' + db6)
+print('\nGroups:')
+for group6 in reader6.Groups:
+  print(group6)
+
+print('\nChannels:')
+for i, channel in enumerate(reader6.Channels):
+  print(i, channel)
+
+channels6_14_21 = reader6.Channels[14:22]
+for i, channel in enumerate(channels6_14_21):
+    locals()["channelG100Q_" + str(i+14)] = channel
+    #print("channelG100Q_" + str(i+14), channel)
+
+#COPEL_100__RotorBom
+print('\n' + db7)
+print('\nGroups:')
+for group7 in reader7.Groups:
+  print(group7)
+
+print('\nChannels:')
+for i, channel in enumerate(reader7.Channels):
+  print(i, channel)
+
+channels7_8_15 = reader7.Channels[8:16]
+for i, channel in enumerate(channels7_8_15):
+    locals()["channelC100B_" + str(i+8)] = channel
+    #print("channelC100B_" + str(i+8), channel)
+
+def fft_unilateral(sinal):
+    # Calcula a FFT unilateral de um sinal
+    # Deve-se entrar com um sinal cujo comprimento é múltiplo de 2^n
+    Y = np.fft.fft(sinal)
+    n = len(sinal)
+    P2 = np.abs(Y / n)
+    P1 = P2[:n//2+1]
+    P1[1:-1] = 2*P1[1:-1]
+    return P1
+
+def localizacao_componentes(componente_30):
+    tempo_desejado1=componente_30-1;
+    posicao_do_tempo1=8193*tempo_desejado1/500
+
+
+    tempo_desejado2=componente_30+1;
+    posicao_do_tempo2=8193*tempo_desejado2/500
+
+    teste_recortadox=f[int(posicao_do_tempo1):int(posicao_do_tempo2)];
+    teste_recortado=data_fft[int(posicao_do_tempo1):int(posicao_do_tempo2)];
+
+    y=np.where(teste_recortado == max(teste_recortado));
+    #print("olhar 30")
+    x=teste_recortadox[y].dot(1)[0];
+    z=sum(teste_recortado) / len(teste_recortado)
+    a=max(teste_recortado)<=z+10
+    return max(teste_recortado),x,z,a
+
+componente_120=120;
+
+
+def localizacao_componente_120(componente_120):
+    #Recortando os intervalos de frequencia
+    tempo_desejado_120=componente_120-10;
+    posicao_do_tempo_120=8193*tempo_desejado_120/500;
+    tempo_desejado_120_2=componente_120+10;
+    posicao_do_tempo_120_2=8193*tempo_desejado_120_2/500;
+
+    #recortando os dados de potência e frquencia com o endereço dos dados do da frequencia desejada
+    teste_recortado_120=data_fft[int(posicao_do_tempo_120):int(posicao_do_tempo_120_2)];
+    f_recortado_120=f[int(posicao_do_tempo_120):int(posicao_do_tempo_120_2)];
+
+    #
+    ceva= np.where(teste_recortado_120 == max(teste_recortado_120))
+    #print(f_recortado_120[ceva],teste_recortado_120[ceva])
+    valor_c120=f_recortado_120[ceva]
+    ceva= sum(ceva)
+    r = f_recortado_120[ceva].item()
+    c = teste_recortado_120[ceva].item()
+    global count_discarded_120
+
+    if not (118 <= r <= 122) or not (-60 <= c <= 0):
+
+      count_discarded_120 += 1
+      return None
+
+
+    localizacao_componente_120_negativa=np.where(teste_recortado_120[0:int(ceva-10)] == max(teste_recortado_120[0:int(ceva-10)]))
+    teste_recortado_120[localizacao_componente_120_negativa]
+    valor_c120n=f_recortado_120[localizacao_componente_120_negativa]
+    #print(int(ceva+43))
+    #print(len(teste_recortado_120))
+    #print("AQUIIII")
+
+
+
+    localizacao_componente_120_positiva=np.where(teste_recortado_120[int(ceva+45):] == max(teste_recortado_120[int(ceva+45):]))
+    localizacao_componente_120_positiva=localizacao_componente_120_positiva+ceva+45
+    #print(localizacao_componente_120_positiva)
+    valor_c120pm=f_recortado_120[localizacao_componente_120_positiva]
+    media_valores_120=sum(teste_recortado_120) / len(teste_recortado_120)
+
+    a=teste_recortado_120[localizacao_componente_120_positiva]<=media_valores_120+10
+    b=teste_recortado_120[localizacao_componente_120_negativa]<=media_valores_120+10
+
+    x=teste_recortado_120[localizacao_componente_120_positiva]
+    y=f_recortado_120[localizacao_componente_120_positiva]
+
+    w=teste_recortado_120[localizacao_componente_120_negativa]
+    z=f_recortado_120[localizacao_componente_120_negativa]
+
+    r=f_recortado_120[ceva]
+    c=teste_recortado_120[ceva]
+
+
+    #valor teóricamente simetricamente perfeito
+
+    valor_c120p=(2*valor_c120-(valor_c120n))
+
+    return r,c,0,x,y,a,0,w,z,b,valor_c120p
+
+
+# Limpar dados e janelas
+plt.close('all')
+
+fraction_split=2**14
+
+
+# Carregar dados
+t = 0.001
+n=fraction_split
+
+count1=0
+
+#db1 = 'COPEL_100__RotorBom.bin'
+#db2 = 'COPEL_100__BarraQuebrada.bin'
+#db3 = 'COPEL_75__BarraQuebrada.bin'
+#db4 = 'Gerador_100__RotorBom.bin'
+#db5 = 'Gerador_75__BarraQuebrada.bin'
+#db6 = 'Gerador_100__BarraQuebrada.bin'
+#db7 = 'COPEL_100__RotorBom.bin'
+
+r_values=[]
+global count_discarded_30
+count_discarded_120 = 0
+count_discarded_30 = 0
+
+for i in channels4_8_15:
+
+  m=i[50:]
+  pp=len(m)/fraction_split
+  x=m[:fraction_split*int(pp)]
+  Dados_fracionados=np.split(x,int(pp))
+  print("leitura"+str(i))
+  # Loop através das listas em dados_fracionados
+  for s1_corte in Dados_fracionados:
+      # Cálculo da FFT
+      n = len(s1_corte)
+      Fs = 1000
+      f = Fs * np.arange(n//2+1) / n
+      fft_result = fft_unilateral(s1_corte)
+      data_fft=20*np.log10(fft_result)
+      tempo_desejado1=20;
+      posicao_do_tempo1=8193*tempo_desejado1/500;
+
+      tempo_desejado2=40;
+      posicao_do_tempo2=8193*tempo_desejado2/500;
+
+      teste_recortado=data_fft[int(posicao_do_tempo1):int(posicao_do_tempo2)];
+      f_recortado=f[int(posicao_do_tempo1):int(posicao_do_tempo2)];
+      max_value=max(teste_recortado);
+      y=np.where(teste_recortado == max_value);
+      velocidade_medida=f_recortado[y].dot(1)[0];
+      potencia_velocidade_medida=teste_recortado[y]
+
+
+      if not (27 <= velocidade_medida <= 33) or not (-60 <= potencia_velocidade_medida <= 0):
+
+        count_discarded_30 += 1
+        print("Leitura descartada 30",count_discarded_30)
+        break
+
+      velocidade_sincrona=30
+      velocidade_acionamento=60
+      escorregamento=(velocidade_sincrona-velocidade_medida)/velocidade_sincrona
+      componente_positiva=velocidade_medida+(2*escorregamento*velocidade_acionamento)
+      componente_negativa=velocidade_medida-(2*escorregamento*velocidade_acionamento)
+      b=localizacao_componentes(componente_positiva)
+      c=localizacao_componentes(componente_negativa)
+
+
+      #r_value = localizacao_componente_120(componente_120)[4][0]
+
+      #r_value=float(r_value)
+      #r_values.append(r_value)
+      #filtered_list = [x for x in r_values if isinstance(x, (int, float))]
+      #average_r = np.mean(filtered_list)
+
+      r_info = localizacao_componente_120(componente_120)
+      #if r_info is not None:
+        #r_value = r_info[0][0]
+        #r_value = b[1]
+        #r_value = float(r_value)
+        #r_values.append(r_value)
+        #filtered_list = [x for x in r_values if isinstance(x, (int, float))]
+        #print(r_values)
+        #average_r = np.mean(filtered_list)
+        #print("Average of 'r' values:", average_r)
+
+      #if r_info==None:
+        #print("none")
+        #break
+
+
+
+
+
+
+
+       #Plot do gráfico
+      if r_info is not None:
+
+        fig, axs = plt.subplots(2, 1)
+        axs[0].plot(f, 20*np.log10(fft_result))
+        axs[0].set_xlim([110, 130])
+        axs[0].set_ylim([-125,-40])
+        axs[1].plot(f, 20*np.log10(fft_result))
+        axs[1].set_xlim([15, 45])
+        axs[1].set_ylim([-125,-40])
+        axs[0].set_xlabel('Frequência (Hz)', fontsize=10)
+        axs[0].set_ylabel('Potência (dB)', fontsize=10)
+        axs[1].set_xlabel('Frequência (Hz)', fontsize=10)
+        axs[1].set_ylabel('Potência (dB)', fontsize=10)
+        plt.subplots_adjust(hspace=0.5)
+
+
